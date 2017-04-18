@@ -31,13 +31,11 @@ class SignalProducerSpec: QuickSpec {
 				expect(handlerCalledTimes) == 2
 			}
 
-			it("should not release signal observers when given disposable is disposed") {
+			it("should release signal observers when given disposable is disposed") {
 				var disposable: Disposable!
 
-				let producer = SignalProducer<Int, NoError> { observer, innerDisposable in
-					disposable = innerDisposable
-
-					innerDisposable += {
+				let producer = SignalProducer<Int, NoError> { observer, collector in
+					collector += {
 						// This is necessary to keep the observer long enough to
 						// even test the memory management.
 						observer.send(value: 0)
@@ -45,10 +43,12 @@ class SignalProducerSpec: QuickSpec {
 				}
 
 				weak var objectRetainedByObserver: NSObject?
-				producer.startWithSignal { signal, _ in
+				producer.startWithSignal { signal, interrupter in
 					let object = NSObject()
 					objectRetainedByObserver = object
 					signal.observeValues { _ in _ = object }
+
+					disposable = interrupter
 				}
 
 				expect(objectRetainedByObserver).toNot(beNil())
@@ -62,7 +62,12 @@ class SignalProducerSpec: QuickSpec {
 				//
 				// After #2959, the object is still retained, since the observation
 				// keeps the signal alive.
-				expect(objectRetainedByObserver).toNot(beNil())
+				//
+				// With the introduction of `DisposableCollector`, the producer disposable
+				// collector is no longer disposable. Hence, this becomes `nil` as the
+				// test case now interrupts the producer, causing all observers to be
+				// released.
+				expect(objectRetainedByObserver).to(beNil())
 			}
 
 			it("should dispose of added disposables upon completion") {
@@ -2169,9 +2174,10 @@ class SignalProducerSpec: QuickSpec {
 
 		describe("observeOn") {
 			it("should immediately cancel upstream producer's work when disposed") {
-				var upstreamDisposable: Disposable!
+				let upstreamDisposable = SimpleDisposable()
+
 				let producer = SignalProducer<(), NoError>{ _, innerDisposable in
-					upstreamDisposable = innerDisposable
+					innerDisposable += upstreamDisposable
 				}
 
 				var downstreamDisposable: Disposable!

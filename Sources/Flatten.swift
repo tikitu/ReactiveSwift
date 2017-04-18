@@ -438,7 +438,7 @@ extension Signal where Value: SignalProducerProtocol, Error == Value.Error {
 		}
 	}
 
-	fileprivate func observeConcurrent(_ observer: ReactiveSwift.Observer<Value.Value, Error>, _ limit: UInt, _ disposable: CompositeDisposable) -> Disposable? {
+	fileprivate func observeConcurrent(_ observer: ReactiveSwift.Observer<Value.Value, Error>, _ limit: UInt, _ disposable: DisposableCollector) -> Disposable? {
 		let state = Atomic(ConcurrentFlattenState<Value.Value, Error>(limit: limit))
 
 		func startNextIfNeeded() {
