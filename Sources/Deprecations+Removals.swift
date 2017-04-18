@@ -3,6 +3,11 @@ import Dispatch
 import enum Result.NoError
 
 // MARK: Unavailable methods in ReactiveSwift 2.0.
+extension Optional where Wrapped == Disposable {
+	@available(*, unavailable, renamed:"dispose")
+	public func remove() { fatalError() }
+}
+
 @available(*, unavailable, renamed:"SignalProducer.timer")
 public func timer(interval: DispatchTimeInterval, on scheduler: DateScheduler) -> SignalProducer<Date, NoError> { fatalError() }
 
@@ -10,6 +15,11 @@ public func timer(interval: DispatchTimeInterval, on scheduler: DateScheduler) -
 public func timer(interval: DispatchTimeInterval, on scheduler: DateScheduler, leeway: DispatchTimeInterval) -> SignalProducer<Date, NoError> { fatalError() }
 
 // MARK: Obsolete types in ReactiveSwift 2.0.
+extension CompositeDisposable {
+	@available(*, deprecated, message:"Use `Disposable?` instead. The typealias would be removed in a future release.")
+	public typealias DisposableHandle = Disposable?
+}
+
 @available(*, unavailable, message: "This protocol has been removed. Constrain `Action` directly instead.")
 public protocol ActionProtocol {}
 
@@ -212,7 +222,7 @@ extension Bag {
 
 extension CompositeDisposable {
 	@available(*, unavailable, renamed:"add(_:)")
-	public func addDisposable(_ d: Disposable) -> DisposableHandle { fatalError() }
+	public func addDisposable(_ d: Disposable) -> Disposable? { fatalError() }
 }
 
 extension Observer {
