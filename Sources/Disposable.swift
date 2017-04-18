@@ -19,6 +19,23 @@ public protocol Disposable: class {
 	func dispose()
 }
 
+/// Represents an entity which collects disposables.
+public protocol DisposableCollector: class {
+	/// Add the given disposable to the collector.
+	///
+	/// If `self` is a disposable and has been disposed of, `disposable` would
+	/// automatically be disposed of.
+	///
+	/// - parameters:
+	///   - disposable: A disposable.
+	///
+	/// - returns: A disposable to remove `disposable` from the collector. `nil` if the
+	///            collector is a disposed disposable, `disposable` has been disposed of,
+	///            or `disposable` is `nil`.
+	@discardableResult
+	func add(_ disposable: Disposable?) -> Disposable?
+}
+
 /// Represents the state of a disposable.
 private enum DisposableState: Int32 {
 	/// The disposable is active.
@@ -106,7 +123,7 @@ public final class ActionDisposable: Disposable {
 }
 
 /// A disposable that will dispose of any number of other disposables.
-public final class CompositeDisposable: Disposable {
+public final class CompositeDisposable: Disposable, DisposableCollector {
 	private let disposables: Atomic<Bag<Disposable>?>
 	private var state: UnsafeAtomicState<DisposableState>
 
@@ -187,19 +204,6 @@ public final class CompositeDisposable: Disposable {
 
 			return handle
 		}
-	}
-
-	/// Add the given action to the composite.
-	///
-	/// - parameters:
-	///   - action: A closure to be invoked when the composite is disposed of.
-	///
-	/// - returns: A disposable to remove `disposable` from the composite. `nil` if the
-	///            composite has been disposed of, `disposable` has been disposed of, or
-	///            `disposable` is `nil`.
-	@discardableResult
-	public func add(_ action: @escaping () -> Void) -> Disposable? {
-		return add(ActionDisposable(action: action))
 	}
 
 	deinit {
@@ -296,6 +300,21 @@ public final class SerialDisposable: Disposable {
 	}
 }
 
+extension DisposableCollector {
+	/// Add the given action to the composite.
+	///
+	/// - parameters:
+	///   - action: A closure to be invoked when the composite is disposed of.
+	///
+	/// - returns: A disposable to remove `disposable` from the composite. `nil` if the
+	///            composite has been disposed of, `disposable` has been disposed of, or
+	///            `disposable` is `nil`.
+	@discardableResult
+	public func add(_ action: @escaping () -> Void) -> Disposable? {
+		return add(ActionDisposable(action: action))
+	}
+}
+
 /// Adds the right-hand-side disposable to the left-hand-side
 /// `CompositeDisposable`.
 ///
@@ -313,7 +332,7 @@ public final class SerialDisposable: Disposable {
 /// - returns: An instance of `DisposableHandle` that can be used to opaquely
 ///            remove the disposable later (if desired).
 @discardableResult
-public func +=(lhs: CompositeDisposable, rhs: Disposable?) -> Disposable? {
+public func +=(lhs: DisposableCollector, rhs: Disposable?) -> Disposable? {
 	return lhs.add(rhs)
 }
 
@@ -331,7 +350,7 @@ public func +=(lhs: CompositeDisposable, rhs: Disposable?) -> Disposable? {
 /// - returns: An instance of `DisposableHandle` that can be used to opaquely
 ///            remove the disposable later (if desired).
 @discardableResult
-public func +=(lhs: CompositeDisposable, rhs: @escaping () -> ()) -> Disposable? {
+public func +=(lhs: DisposableCollector, rhs: @escaping () -> ()) -> Disposable? {
 	return lhs.add(rhs)
 }
 
@@ -349,7 +368,7 @@ public func +=(lhs: CompositeDisposable, rhs: @escaping () -> ()) -> Disposable?
 /// - returns: An instance of `DisposableHandle` that can be used to opaquely
 ///            remove the disposable later (if desired).
 @discardableResult
-public func +=(lhs: ScopedDisposable<CompositeDisposable>, rhs: Disposable?) -> Disposable? {
+public func +=<D: DisposableCollector>(lhs: ScopedDisposable<D>, rhs: Disposable?) -> Disposable? {
 	return lhs.inner.add(rhs)
 }
 
@@ -367,6 +386,6 @@ public func +=(lhs: ScopedDisposable<CompositeDisposable>, rhs: Disposable?) -> 
 /// - returns: An instance of `DisposableHandle` that can be used to opaquely
 ///            remove the disposable later (if desired).
 @discardableResult
-public func +=(lhs: ScopedDisposable<CompositeDisposable>, rhs: @escaping () -> ()) -> Disposable? {
+public func +=<D: DisposableCollector>(lhs: ScopedDisposable<D>, rhs: @escaping () -> ()) -> Disposable? {
 	return lhs.inner.add(rhs)
 }
